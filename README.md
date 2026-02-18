@@ -109,6 +109,42 @@ AppLaudは、USBボイスレコーダーをMacに接続した際に、音声フ�
 *   APIキーの取り扱いには十分注意してください。環境変数など、安全な方法で管理してください。
 *   長時間音声の処理には時間がかかる場合があります。
 
+## オリジナルリポジトリとの違い
+
+本リポジトリは [nyanko3141592/AppLaud](https://github.com/nyanko3141592/AppLaud) のフォークです。以下のカスタマイズを加えています。
+
+### オリジナルの機能
+
+- 文字起こし: Gemini APIのみ
+- 要約: Gemini APIのみ
+- 校正: なし
+- エンジン選択: config.shで固定
+- マスク機能: なし
+- Markdown出力: 要約のみ
+- launchd: スクリプトを直接実行
+- Gemini使用時の警告: なし
+
+### このフォークで追加・変更した機能
+
+- 文字起こし: Whisper（ローカル）/ Gemini API / 両方から選択可能
+- 要約: Claude CLI / Gemini API から選択可能
+- 校正: Claude CLI または Gemini APIによる校正ステップを追加
+- エンジン選択: USB接続時にAppleScriptダイアログで都度選択可能（5つの構成プリセット）
+- マスク機能: Whisper使用時、LLM送信前に機密情報を[MASKED]に置換
+- Markdown出力: 文字起こし・校正済みテキスト・要約の3セクション構成
+- launchd: Terminal.app経由で実行（macOS TCC権限対応）
+- Gemini使用時の警告: セキュリティ警告ダイアログを表示（音声の外部送信に関する注意）
+
+### エンジン選択ダイアログ
+
+USB接続時に以下の5つの構成から選択できます：
+
+1. **おすすめ（追加コストなし）** — Whisper + マスク + Claude校正 + Claude要約（※Claude Proサブスク必要）
+2. **全部Gemini** — Gemini文字起こし + Gemini校正 + Gemini要約
+3. **Gemini+Claude** — Gemini文字起こし + Claude校正 + Gemini要約
+4. **両方で文字起こし** — Whisper & Gemini両方 + Claude校正 + Claude要約
+5. **カスタム** — config.shの設定値をそのまま使用
+
 ## 今後の改善点 (TODO)
 
 *   Windows/Linuxへの対応。
