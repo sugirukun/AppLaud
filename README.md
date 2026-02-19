@@ -37,12 +37,20 @@ AppLaudは、USBボイスレコーダーをMacに接続した際に、音声フ�
     pip install google-generativeai pydub
     ```
     (Pythonの実行環境によっては `pip3` を使用してください。)
-4.  **APIキーの設定:**
-    *   Google CloudでGemini APIを有効にし、APIキーを取得してください。
-    *   取得したAPIキーを環境変数 `GOOGLE_API_KEY` に設定します。シェルの設定ファイル (例: `~/.zshrc`, `~/.bash_profile`) に追記するか、`launchd` の設定ファイルに含める方法があります。
+4.  **APIキーの設定（Geminiエンジン使用時のみ必要）:**
+    *   [Google AI Studio](https://aistudio.google.com/apikey) でAPIキーを取得してください。
+    *   取得したAPIキーを `~/.zshrc` に設定します（GitHubにキーが漏れないよう、config.shには書かないでください）：
         ```bash
-        export GOOGLE_API_KEY="YOUR_API_KEY"
+        echo 'export GOOGLE_API_KEY="取得したキー"' >> ~/.zshrc
+        source ~/.zshrc
         ```
+    *   APIキーを削除・再発行した場合は、古いキーを `.zshrc` から削除してから新しいキーを設定してください：
+        ```bash
+        sed -i '' '/GOOGLE_API_KEY/d' ~/.zshrc
+        echo 'export GOOGLE_API_KEY="新しいキー"' >> ~/.zshrc
+        source ~/.zshrc
+        ```
+    *   **注意:** Geminiの無料枠にはリクエスト数・トークン数の制限があります。使用状況は [Google AI Studio Rate Limit](https://aistudio.google.com/rate-limit) で確認できます。
 5.  **`launchd` エージェントの設定 (macOSユーザー向け):**
     *   USBデバイス接続時に `file_mover.sh` を自動実行するために、`launchd` のエージェントを設定する必要があります。
     *   本リポジトリの `document/com.example.applaud.filemover.plist` は、このための設定ファイルテンプレートです。
