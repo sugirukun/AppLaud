@@ -37,7 +37,7 @@ export RECORDER_NAME="NO NAME"
 
 # --- TODO: Setting ---
 # 音声ファイルが格納されているUSBデバイス内のサブディレクトリ名
-export VOICE_FILES_SUBDIR="RECORD"
+export VOICE_FILES_SUBDIR=""
 
 # --- TODO: Setting ---
 # 音声ファイルを移動する先のローカルディレクトリ
@@ -63,14 +63,6 @@ export PROCESSED_LOG_FILE="../debug/processed_log.jsonl"
 # 処理対象の拡張子 (zsh配列形式で定義)
 export TARGET_EXTENSIONS_ARRAY=(-iname '*.wav' -o -iname '*.mp3' -o -iname '*.m4a')
 
-# --- TODO: Setting ---
-# ステータス管理ファイル
-export STATUS_FILE_PATH="/Users/m1mac/Desktop/MyVoiceRecoser/debug/processing_status.jsonl"
-
-# --- TODO: Setting ---
-# プロンプトテンプレートファイル
-export PROMPT_TEMPLATE_PATH="../prompt/template.txt"
-
 # --- ここまで設定 ---
 
 # 設定値の確認 (デバッグ用)
@@ -92,11 +84,3 @@ for element in "${TARGET_EXTENSIONS_ARRAY[@]}"; do
 done
 echo "-------------------------"
 
-# 設定内容の確認用 (デバッグ時にコメントを外してください)
-# echo "RECORDER_NAME: $RECORDER_NAME"
-# echo "AUDIO_DEST_DIR: $AUDIO_DEST_DIR"
-# echo "MARKDOWN_OUTPUT_DIR: $MARKDOWN_OUTPUT_DIR"
-# echo "PYTHON_SCRIPT_PATH: $PYTHON_SCRIPT_PATH"
-# echo "SEARCH_PATTERNS: ${SEARCH_PATTERNS[@]}"
-# echo "STATUS_FILE_PATH: $STATUS_FILE_PATH"
-# echo "PROMPT_TEMPLATE_PATH: $PROMPT_TEMPLATE_PATH" 

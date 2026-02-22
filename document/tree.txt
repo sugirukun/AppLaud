@@ -1,29 +1,24 @@
-. (AppLaud)
-├── .git/ (git repository files)
+. (AppLaud / MyVoiceRecoser)
 ├── .gitignore
+├── CLAUDE.md
 ├── README.md
-├── .DS_Store
-├── .tmp_chunks/
-│   └── sample_chunks/ 
+├── requirements.txt
+├── audio/                          # gitignore対象（音声ファイル保存先）
+│   └── done/                       # 処理完了済み音声ファイル
 ├── debug/
-│   ├── dummy_usb/
-│   ├── processed_audio/
-│   │   └── .gitkeep
-│   ├── processed_log.jsonl
-│   ├── .DS_Store
-│   └── summaries/
-│       └── .gitkeep
+│   └── processed_log.jsonl         # gitignore対象（処理記録ログ）
 ├── document/
 │   ├── project.md
 │   ├── task.md
 │   └── tree.txt
+├── markdown_output/                # gitignore対象（要約Markdown出力先）
 ├── prompt/
-│   ├── summary_prompt.txt
-│   └── template.txt
+│   └── summary_prompt.txt
 └── script/
     ├── com.example.applaud.filemover.plist
     ├── config.sh
-    ├── transcribe_summarize.py
-    └── file_mover.sh
+    ├── file_mover.sh
+    └── transcribe_summarize.py
 
-9 directories, 12 files
+# 外部ファイル（リポジトリ外）
+~/.local/bin/applaud_launcher.sh    # launchd用ラッパー（ロック機構付き）

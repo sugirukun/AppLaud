@@ -393,7 +393,7 @@ def summarize_text(text, prompt_template, engine, gemini_model=None):
 
 def save_markdown(transcription, proofread, summary, output_dir, generated_filename_base, file_date):
     """YYYYMMDD_タイトル.md 形式でMarkdownを保存する。既存ファイルがあれば連番を付与。"""
-    date_prefix = file_date.strftime("%Y%m%d")
+    date_prefix = file_date.strftime("%Y-%m-%d-%H-%M-%S")
     base_name = f"{date_prefix}_{generated_filename_base}"
     markdown_filename = f"{base_name}.md"
     output_path = pathlib.Path(output_dir) / markdown_filename
@@ -635,8 +635,12 @@ def main():
                 )
                 sanitized_filename_base = sanitize_filename(suggested_filename_base)
 
-                file_creation_timestamp = original_audio_path.stat().st_ctime
-                file_creation_date = datetime.datetime.fromtimestamp(file_creation_timestamp)
+                # ファイル名から録音日時をパース（例: 2026-02-21-15-30-58.WAV）
+                _m = re.match(r'(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})', original_audio_filename_stem)
+                if _m:
+                    file_creation_date = datetime.datetime(*map(int, _m.groups()))
+                else:
+                    file_creation_date = datetime.datetime.fromtimestamp(original_audio_path.stat().st_mtime)
 
                 output_markdown_filename = save_markdown(
                     transcription, proofread_result, summary,
