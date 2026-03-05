@@ -44,6 +44,10 @@ export VOICE_FILES_SUBDIR=""
 export AUDIO_DEST_DIR="/Users/m1mac/Desktop/MyVoiceRecoser/audio"
 
 # --- TODO: Setting ---
+# 文字起こしtxtファイルを出力する先のローカルディレクトリ
+export TRANSCRIPT_OUTPUT_DIR="/Users/m1mac/Desktop/MyVoiceRecoser/mojitxt"
+
+# --- TODO: Setting ---
 # Markdown要約ファイルを出力する先のローカルディレクトリ
 export MARKDOWN_OUTPUT_DIR="/Users/m1mac/Desktop/MyVoiceRecoser/markdown_output"
 

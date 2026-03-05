@@ -455,6 +455,10 @@ def main():
         help="Path to the summary prompt template file.",
     )
     parser.add_argument(
+        "--transcript_output_dir", required=True,
+        help="Directory to save the transcription txt files.",
+    )
+    parser.add_argument(
         "--processed_log_file_path", required=True,
         help="Path to the JSONL log file.",
     )
@@ -510,11 +514,11 @@ def main():
 
     processing_dir = pathlib.Path(args.audio_processing_dir)
     markdown_output_dir = pathlib.Path(args.markdown_output_dir)
+    transcript_output_dir = pathlib.Path(args.transcript_output_dir)
     summary_prompt_file_path = pathlib.Path(args.summary_prompt_file_path)
     processed_log_file_path = pathlib.Path(args.processed_log_file_path)
 
-    done_dir = processing_dir / "done"
-    done_dir.mkdir(parents=True, exist_ok=True)
+    transcript_output_dir.mkdir(parents=True, exist_ok=True)
 
     audio_extensions = [".wav", ".mp3", ".m4a"]
     audio_files_to_process = [
@@ -594,7 +598,7 @@ def main():
                 continue
 
             # --- Save transcription to file ---
-            transcription_save_path = done_dir / f"{original_audio_filename_stem}_transcription.txt"
+            transcription_save_path = transcript_output_dir / f"{original_audio_filename_stem}_transcription.txt"
             try:
                 with open(transcription_save_path, "w", encoding="utf-8") as f:
                     f.write(transcription)
@@ -651,21 +655,6 @@ def main():
                     output_markdown_filename, "summary_success",
                 )
                 print(f"Processing successful for {original_audio_filename}.")
-
-                # Move processed file to done directory
-                try:
-                    shutil.move(
-                        str(original_audio_path),
-                        str(done_dir / original_audio_filename),
-                    )
-                    print(f"Moved {original_audio_filename} to {done_dir}")
-                except Exception as e:
-                    print(f"Error moving {original_audio_filename} to {done_dir}: {e}")
-                    log_processed_file(
-                        processed_log_file_path, original_audio_filename,
-                        output_markdown_filename, "move_to_done_failure",
-                        f"Failed to move to {done_dir}: {str(e)}",
-                    )
 
                 # Clean up temp chunk dir if used
                 if cleanup_temp_dir_on_success and temp_chunk_processing_dir.exists():

@@ -88,6 +88,12 @@ if [ $osascript_exit_code -ne 0 ] || [ "$ENGINE_CHOICE" = "cancelled" ]; then
     exit 0
 fi
 
+# 完了ダイアログを表示してターミナルを閉じる
+show_completion() {
+    osascript -e 'display dialog "ボイスレコーダーの処理が完了しました" buttons {"OK"} default button "OK" with title "MyVoiceRecoser"'
+    osascript -e 'tell application "Terminal" to close front window'
+}
+
 # Gemini使用時の警告ダイアログ（共通関数）
 show_gemini_warning() {
     local confirm_result
@@ -180,9 +186,8 @@ fi
 touch "${PROCESSED_LOG_FILE}"
 echo "処理済み記録ファイルを確認/作成しました: ${PROCESSED_LOG_FILE}"
 
-AUDIO_DONE_DIR="${AUDIO_DEST_DIR}/done"
-mkdir -p "${AUDIO_DONE_DIR}"
-echo "完了ファイル保存先ディレクトリを確認/作成しました: ${AUDIO_DONE_DIR}"
+mkdir -p "${TRANSCRIPT_OUTPUT_DIR}"
+echo "文字起こしtxt保存先ディレクトリを確認/作成しました: ${TRANSCRIPT_OUTPUT_DIR}"
 
 # --- 音声ファイルの検索 ---
 echo "指定されたパスから音声ファイルを検索します: $SEARCH_PATH"
@@ -253,6 +258,7 @@ done
 # --- ファイル移動のみの場合はここで終了 ---
 if [ "$MOVE_ONLY" = true ]; then
     echo "\nファイルの移動が完了しました。（文字起こし・要約はスキップ）"
+    show_completion
     exit 0
 fi
 
@@ -268,12 +274,14 @@ abs_python_script_path="$(cd "${SCRIPT_DIR}" && realpath "${PYTHON_SCRIPT_PATH}"
 abs_summary_prompt_file_path="$(cd "${SCRIPT_DIR}" && realpath "${SUMMARY_PROMPT_FILE_PATH}")"
 abs_processed_log_file_path="$(cd "${SCRIPT_DIR}" && realpath "${PROCESSED_LOG_FILE}")"
 abs_markdown_output_dir="$(cd "${SCRIPT_DIR}" && realpath "${MARKDOWN_OUTPUT_DIR}")"
+abs_transcript_output_dir="$(cd "${SCRIPT_DIR}" && realpath "${TRANSCRIPT_OUTPUT_DIR}")"
 abs_audio_dest_dir_for_python="$(cd "${SCRIPT_DIR}" && realpath "${AUDIO_DEST_DIR}")"
 
 echo "Pythonスクリプトを呼び出します: $abs_python_script_path (対象ディレクトリ: $abs_audio_dest_dir_for_python)"
 python3 "$abs_python_script_path" \
     --audio_processing_dir "$abs_audio_dest_dir_for_python" \
     --markdown_output_dir "$abs_markdown_output_dir" \
+    --transcript_output_dir "$abs_transcript_output_dir" \
     --summary_prompt_file_path "$abs_summary_prompt_file_path" \
     --processed_log_file_path "$abs_processed_log_file_path"
 
@@ -285,4 +293,5 @@ else
 fi
 
 echo "\n全ての処理が完了しました。"
+show_completion
 exit 0
