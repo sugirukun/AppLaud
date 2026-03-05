@@ -4,6 +4,7 @@
 # Output data
 audio/
 markdown_output/
+mojitxt/
 
 # Temporary files
 debug_outputs/find_results.txt
