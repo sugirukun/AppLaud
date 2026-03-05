@@ -12,7 +12,7 @@
 # 5. Pythonスクリプトを呼び出して文字起こしと要約を行う。
 
 # 終了時（正常・エラー・Terminal強制終了問わず）ロックファイルを削除
-trap 'rm -f /tmp/applaud_launcher.lock' EXIT
+trap 'rm -rf /tmp/applaud_launcher.lockdir' EXIT
 
 echo "引数: $@"
 
