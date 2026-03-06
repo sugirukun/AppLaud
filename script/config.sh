@@ -48,6 +48,10 @@ export AUDIO_DEST_DIR="/Users/m1mac/Desktop/MyVoiceRecoser/audio"
 export TRANSCRIPT_OUTPUT_DIR="/Users/m1mac/Desktop/MyVoiceRecoser/mojitxt"
 
 # --- TODO: Setting ---
+# Obsidian vaultのvoiceメモフォルダパス（「おぶし」検出時にノートを作成）
+export OBSIDIAN_VAULT_DIR="/Users/m1mac/Documents/Obsidian Vault/voiceメモ"
+
+# --- TODO: Setting ---
 # Markdown要約ファイルを出力する先のローカルディレクトリ
 export MARKDOWN_OUTPUT_DIR="/Users/m1mac/Desktop/MyVoiceRecoser/markdown_output"
 

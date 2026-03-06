@@ -186,6 +186,174 @@ def sanitize_filename(filename_suggestion, max_length=MAX_FILENAME_LENGTH):
 
 
 # ---------------------------------------------------------------------------
+# Keyword Detection & Actions (Obsidian / Reminders / Calendar)
+# ---------------------------------------------------------------------------
+
+def extract_keyword_items(text, keyword, all_stop_keywords=None):
+    """キーワードの直後のテキストを抽出する。
+    セパレータ不要。キーワード直後から次のキーワードまたは。\nまでを取得。
+    all_stop_keywords を指定すると全キーワードを区切りとして使用。
+    """
+    stop_kws = all_stop_keywords or [keyword]
+    stop_pattern = '|'.join(re.escape(k) for k in stop_kws)
+    pattern = rf'{re.escape(keyword)}(?!{re.escape(keyword)})(?:[：:、,\s]*)([^。\n]+?)(?={stop_pattern}|。|\n|$)'
+    return [m.strip() for m in re.findall(pattern, text) if m.strip()]
+
+
+def create_obsidian_note(item, audio_filename_stem, obsidian_vault_dir, recording_date):
+    """Obsidian vaultにノートを作成する。"""
+    vault_path = pathlib.Path(obsidian_vault_dir)
+    vault_path.mkdir(parents=True, exist_ok=True)
+    sanitized = sanitize_filename(item, max_length=40)
+    filename = f"{recording_date.strftime('%Y-%m-%d')}_{sanitized}.md"
+    note_path = vault_path / filename
+    content = (
+        f"# {item}\n\n"
+        f"**録音日時**: {recording_date.strftime('%Y-%m-%d %H:%M')}\n"
+        f"**元ファイル**: {audio_filename_stem}\n\n"
+        f"{item}\n"
+    )
+    try:
+        with open(note_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"Obsidianノート作成: {note_path}")
+    except IOError as e:
+        print(f"Warning: Obsidianノート作成失敗: {e}")
+
+
+def show_obsidian_dialog(obsidian_entries, obsidian_vault_dir):
+    """Obsidianへの追加内容をダイアログで案内し、確認後にノートを作成する。"""
+    if not obsidian_entries:
+        return
+    bullet_list = "\n".join(f"• {e['item']}" for e in obsidian_entries)
+    escaped_list = bullet_list.replace("\\", "\\\\").replace('"', '\\"')
+    dialog_script = (
+        f'set choice to button returned of ('
+        f'display dialog "Obsidianのvoiceメモフォルダに以下を追加します:\\n\\n{escaped_list}" '
+        f'buttons {{"ノートを作成", "スキップ"}} '
+        f'default button "ノートを作成" '
+        f'with title "Obsidian メモ")\nreturn choice'
+    )
+    result = subprocess.run(["osascript", "-e", dialog_script], capture_output=True, text=True)
+    choice = result.stdout.strip()
+    print(f"Obsidianダイアログ選択: {choice}")
+    if choice == "ノートを作成":
+        for e in obsidian_entries:
+            create_obsidian_note(e["item"], e["stem"], obsidian_vault_dir, e["date"])
+
+
+def get_reminder_lists():
+    """Remindersアプリの全リスト名を取得する。"""
+    script = 'tell application "Reminders" to return name of every list'
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    if result.returncode == 0:
+        return [s.strip() for s in result.stdout.strip().split(", ") if s.strip()]
+    return []
+
+
+def ensure_reminder_list(list_name):
+    """リストが存在しない場合は作成する。"""
+    escaped = list_name.replace("\\", "\\\\").replace('"', '\\"')
+    script = (
+        f'tell application "Reminders"\n'
+        f'    if not (exists list "{escaped}") then\n'
+        f'        make new list with properties {{name:"{escaped}"}}\n'
+        f'    end if\n'
+        f'end tell'
+    )
+    subprocess.run(["osascript", "-e", script], capture_output=True)
+
+
+def create_reminder(title, list_name=None):
+    """リマインダーにタスクを追加する。"""
+    escaped = title.replace("\\", "\\\\").replace('"', '\\"')
+    if list_name:
+        escaped_list = list_name.replace("\\", "\\\\").replace('"', '\\"')
+        script = f'tell application "Reminders" to tell list "{escaped_list}" to make new reminder with properties {{name:"{escaped}"}}'
+    else:
+        script = f'tell application "Reminders" to make new reminder with properties {{name:"{escaped}"}}'
+    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    if result.returncode == 0:
+        print(f"リマインダー追加: {title} -> {list_name or 'デフォルト'}")
+    else:
+        print(f"Warning: リマインダー追加失敗({list_name}): {result.stderr.strip()}")
+
+
+UNSORTED_LIST = "未整理"
+
+
+def show_task_calendar_dialog(task_items):
+    """リスト選択 → リマインダー追加 → カレンダー移行ダイアログを表示する。"""
+    if not task_items:
+        return
+
+    bullet_list = "\n".join(f"• {t}" for t in task_items)
+    escaped_bullet = bullet_list.replace("\\", "\\\\").replace('"', '\\"')
+
+    # --- リマインダーリスト選択 ---
+    reminder_lists = get_reminder_lists()
+    selected_list = None
+    if reminder_lists:
+        list_str = ", ".join(f'"{l}"' for l in reminder_lists)
+        select_script = (
+            f'set listNames to {{{list_str}}}\n'
+            f'set chosen to choose from list listNames '
+            f'with title "リマインダーリスト選択" '
+            f'with prompt "追加するリストを選択してください：\\n\\n{escaped_bullet}" '
+            f'default items {{item 1 of listNames}}\n'
+            f'if chosen is false then return ""\n'
+            f'return item 1 of chosen'
+        )
+        result = subprocess.run(["osascript", "-e", select_script], capture_output=True, text=True)
+        if result.returncode == 0 and result.stdout.strip():
+            selected_list = result.stdout.strip()
+            print(f"選択リスト: {selected_list}")
+
+    # --- リマインダーに追加（選択リスト + 未整理）---
+    ensure_reminder_list(UNSORTED_LIST)
+    for task in task_items:
+        if selected_list:
+            create_reminder(task, selected_list)
+        if not selected_list or selected_list != UNSORTED_LIST:
+            create_reminder(task, UNSORTED_LIST)
+
+    # --- カレンダー移行ダイアログ ---
+    escaped_list = bullet_list.replace("\\", "\\\\").replace('"', '\\"')
+    dialog_script = (
+        f'set choice to button returned of ('
+        f'display dialog "リマインダーに追加したタスク:\\n\\n{escaped_list}\\n\\n'
+        f'カレンダーへの操作を選択してください。" '
+        f'buttons {{"カレンダーに移行", "クリップボードにコピー", "そのまま"}} '
+        f'default button "そのまま" '
+        f'with title "タスク処理")\nreturn choice'
+    )
+    result = subprocess.run(["osascript", "-e", dialog_script], capture_output=True, text=True)
+    choice = result.stdout.strip()
+    print(f"タスクダイアログ選択: {choice}")
+    if choice == "カレンダーに移行":
+        for task in task_items:
+            escaped = task.replace("\\", "\\\\").replace('"', '\\"')
+            cal_script = (
+                'tell application "Calendar"\n'
+                '    set theDate to current date\n'
+                '    set time of theDate to 7 * hours\n'
+                '    set theDate to theDate + 1 * days\n'
+                '    set theCalendar to first calendar whose writable is true\n'
+                '    tell theCalendar\n'
+                f'        make new event with properties {{summary:"{escaped}", start date:theDate, end date:theDate + 3600}}\n'
+                '    end tell\n'
+                'end tell'
+            )
+            subprocess.run(["osascript", "-e", cal_script], capture_output=True)
+            print(f"カレンダーに追加: {task}")
+    elif choice == "クリップボードにコピー":
+        all_tasks = "\n".join(task_items)
+        escaped_all = all_tasks.replace("\\", "\\\\").replace('"', '\\"')
+        subprocess.run(["osascript", "-e", f'set the clipboard to "{escaped_all}"'], capture_output=True)
+        print("タスクをクリップボードにコピーしました。")
+
+
+# ---------------------------------------------------------------------------
 # Transcription — Gemini
 # ---------------------------------------------------------------------------
 
@@ -459,6 +627,10 @@ def main():
         help="Directory to save the transcription txt files.",
     )
     parser.add_argument(
+        "--obsidian_vault_dir", required=True,
+        help="Obsidian vault directory for voice memos.",
+    )
+    parser.add_argument(
         "--processed_log_file_path", required=True,
         help="Path to the JSONL log file.",
     )
@@ -515,6 +687,7 @@ def main():
     processing_dir = pathlib.Path(args.audio_processing_dir)
     markdown_output_dir = pathlib.Path(args.markdown_output_dir)
     transcript_output_dir = pathlib.Path(args.transcript_output_dir)
+    obsidian_vault_dir = args.obsidian_vault_dir
     summary_prompt_file_path = pathlib.Path(args.summary_prompt_file_path)
     processed_log_file_path = pathlib.Path(args.processed_log_file_path)
 
@@ -531,6 +704,9 @@ def main():
         return
 
     print(f"Found {len(audio_files_to_process)} audio files to process in {processing_dir}")
+
+    all_task_items = []     # タスクキーワードで収集したタスク（全ファイル分）
+    all_obsidian_entries = []  # おぶしキーワードで収集したノート情報（全ファイル分）
 
     for audio_file_path in audio_files_to_process:
         original_audio_path = audio_file_path
@@ -606,6 +782,25 @@ def main():
             except IOError as e:
                 print(f"Warning: Failed to save transcription: {e}")
 
+            # --- キーワード検出: おぶし / タスク ---
+            _m = re.match(r'(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})', original_audio_filename_stem)
+            keyword_date = datetime.datetime(*map(int, _m.groups())) if _m else \
+                datetime.datetime.fromtimestamp(original_audio_path.stat().st_mtime)
+
+            # "おぶし"はWhisperで誤認識されやすいため複数バリアントを検索
+            obsidian_keywords = ["おぶし", "オブシ", "オプシ", "オブス", "おぶす"]
+            all_keywords = ["タスク"] + obsidian_keywords
+            obsidian_items = list(dict.fromkeys(
+                item
+                for kw in obsidian_keywords
+                for item in extract_keyword_items(transcription, kw, all_stop_keywords=all_keywords)
+            ))
+            for item in obsidian_items:
+                all_obsidian_entries.append({"item": item, "stem": original_audio_filename_stem, "date": keyword_date})
+
+            task_items = list(dict.fromkeys(extract_keyword_items(transcription, "タスク", all_stop_keywords=all_keywords)))
+            all_task_items.extend(task_items)
+
             # --- Step 2: Masking ---
             text_for_llm = transcription
             if enable_masking:
@@ -680,6 +875,8 @@ def main():
             )
             continue
 
+    show_obsidian_dialog(all_obsidian_entries, obsidian_vault_dir)
+    show_task_calendar_dialog(all_task_items)
     print("\nAll files processed.")
 
 

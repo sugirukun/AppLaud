@@ -202,24 +202,32 @@ echo "実行するfindコマンドのパス部分: $find_args[1]"
 print -lr -- "実行するfindコマンドの述語部分 (TARGET_EXTENSIONS_ARRAY):" "${TARGET_EXTENSIONS_ARRAY[@]}"
 
 AUDIO_FILES=()
-find_stderr_output=""
+find_stderr_file=$(mktemp)
 find_output_stdout=$(find "$find_args[1]" -type f \
     \( "${TARGET_EXTENSIONS_ARRAY[@]}" \) \
     -not -name '._*' \
-    -print0 2> >(find_stderr_output=$(cat); echo "$find_stderr_output" >&2) )
+    -print0 2>"$find_stderr_file")
 find_exit_code=$?
+find_stderr_output=$(cat "$find_stderr_file")
+rm -f "$find_stderr_file"
+[ -n "$find_stderr_output" ] && echo "$find_stderr_output" >&2
 
 echo "Find command exit code: $find_exit_code"
 
 if [ $find_exit_code -ne 0 ]; then
-    echo "エラー: findコマンドの実行に失敗しました。終了コード: $find_exit_code。パス: $find_args[1]" >&2
-    if [ -n "$find_stderr_output" ] && [[ "$find_stderr_output" != *"Permission denied"* ]] && [[ "$find_stderr_output" != *"Operation not permitted"* ]]; then
-        echo "Find command stderr: $find_stderr_output" >&2
+    # macOSの隠しディレクトリ（.Spotlight-V100等）の権限エラーは無視して続行
+    if [[ "$find_stderr_output" == *"Operation not permitted"* ]] || [[ "$find_stderr_output" == *"Permission denied"* ]]; then
+        echo "警告: 一部ディレクトリへのアクセスが拒否されましたが処理を続行します。"
+    else
+        echo "エラー: findコマンドの実行に失敗しました。終了コード: $find_exit_code。パス: $find_args[1]" >&2
+        if [ -n "$find_stderr_output" ]; then
+            echo "Find command stderr: $find_stderr_output" >&2
+        fi
+        if [ ! -d "$find_args[1]" ]; then
+            echo "エラー: 検索対象ディレクトリが存在しません: $find_args[1]" >&2
+        fi
+        exit 1
     fi
-    if [ ! -d "$find_args[1]" ]; then
-        echo "エラー: 検索対象ディレクトリが存在しません: $find_args[1]" >&2
-    fi
-    exit 1
 fi
 
 if [ -n "$find_output_stdout" ]; then
@@ -275,23 +283,27 @@ abs_summary_prompt_file_path="$(cd "${SCRIPT_DIR}" && realpath "${SUMMARY_PROMPT
 abs_processed_log_file_path="$(cd "${SCRIPT_DIR}" && realpath "${PROCESSED_LOG_FILE}")"
 abs_markdown_output_dir="$(cd "${SCRIPT_DIR}" && realpath "${MARKDOWN_OUTPUT_DIR}")"
 abs_transcript_output_dir="$(cd "${SCRIPT_DIR}" && realpath "${TRANSCRIPT_OUTPUT_DIR}")"
+abs_obsidian_vault_dir="${OBSIDIAN_VAULT_DIR}"
 abs_audio_dest_dir_for_python="$(cd "${SCRIPT_DIR}" && realpath "${AUDIO_DEST_DIR}")"
 
+PYTHON_LOG="/tmp/applaud_python.log"
 echo "Pythonスクリプトを呼び出します: $abs_python_script_path (対象ディレクトリ: $abs_audio_dest_dir_for_python)"
 python3 "$abs_python_script_path" \
     --audio_processing_dir "$abs_audio_dest_dir_for_python" \
     --markdown_output_dir "$abs_markdown_output_dir" \
     --transcript_output_dir "$abs_transcript_output_dir" \
+    --obsidian_vault_dir "$abs_obsidian_vault_dir" \
     --summary_prompt_file_path "$abs_summary_prompt_file_path" \
-    --processed_log_file_path "$abs_processed_log_file_path"
+    --processed_log_file_path "$abs_processed_log_file_path" \
+    2>&1 | tee "$PYTHON_LOG"
 
-python_exit_code=$?
+python_exit_code=${pipestatus[1]}
 if [ $python_exit_code -eq 0 ]; then
-    echo "Pythonスクリプトの実行に成功しました。"
+    echo "\n全ての処理が完了しました。"
+    show_completion
 else
     echo "エラー: Pythonスクリプトの実行に失敗しました。(終了コード: $python_exit_code)" >&2
+    osascript -e "display dialog \"Pythonスクリプトでエラーが発生しました。\n\nログ: ${PYTHON_LOG}\n\nTerminalでエラー内容を確認してください。\" buttons {\"OK\"} default button \"OK\" with title \"MyVoiceRecoser - エラー\" with icon caution"
+    echo "\nTerminalはエラー確認のため開いたままにしています。"
 fi
-
-echo "\n全ての処理が完了しました。"
-show_completion
 exit 0
